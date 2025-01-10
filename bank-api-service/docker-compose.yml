@@ -1,0 +1,52 @@
+version: '3.8'
+services:
+  bank-frontend:
+    image: bank-frontend
+    build:
+      context: ../bank-frontend-service
+    ports:
+      - "3000:80"
+    depends_on:
+      - bank-api
+      - bank-csrf
+
+  bank-api:
+    image: bank-api
+    build:
+      context: .
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/bank
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+  bank-csrf:
+    image: bank-csrf
+    build:
+      context: ../bank-csrf-security
+    ports:
+      - "8081:8081"
+    depends_on:
+      - bank-api
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bank
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  db-data:

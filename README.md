@@ -49,3 +49,5 @@ minikube service bank-frontend --url
 ```bash
 minikube ip
 ```
+## Разработка и интеграция
+soon

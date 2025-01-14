@@ -1,55 +1,151 @@
+<!-- bank-frontend-service/index.html -->
 <!DOCTYPE html>
-<!--[if lt IE 7]>
-<html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
-<!--[if IE 7]>
-<html class="no-js lt-ie9 lt-ie8"> <![endif]-->
-<!--[if IE 8]>
-<html class="no-js lt-ie9"> <![endif]-->
-<!--[if gt IE 8]><!-->
-<html class="no-js"> <!--<![endif]-->
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title></title>
-    <meta name="description" content="">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-
-    <!-- Place favicon.ico and apple-touch-icon.png in the root directory -->
-
-    <link rel="stylesheet" href="css/normalize.css">
-    <link rel="stylesheet" href="css/main.css">
-    <script src="js/vendor/modernizr-2.6.2.min.js"></script>
+    <title>bank.com</title>
+    <link rel="icon" href="favicon.ico">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.0.1/css/bootstrap.min.css">
 </head>
 <body>
-<!--[if lt IE 7]>
-<p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade
-    your browser</a> to improve your experience.</p>
-<![endif]-->
 
-<!-- Add your site or application content here -->
-<p>Hello world! This is Bank CSRF Service.</p>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <h3 class="navbar-brand">My Bank</h3>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <h3 class="nav-link" id="balance">Balance: Loading...</h3>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
 
-<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
-<script>window.jQuery || document.write('<script src="js/vendor/jquery-1.10.2.min.js"><\/script>')</script>
-<script src="js/plugins.js"></script>
-<script src="js/main.js"></script>
+<div class="container my-5">
+    <h2 class="mb-3">Transfer Money</h2>
+    <form id="transferForm">
+        <div class="mb-3">
+            <label for="to" class="form-label">To Account:</label>
+            <input type="text" class="form-control" id="to" name="to" value="Utility Management Company" readonly>
+        </div>
+        <div class="mb-3">
+            <label for="note" class="form-label">Note:</label>
+            <input type="text" class="form-control" id="note" name="note" value="Water Bill" readonly>
+        </div>
+        <div class="mb-3">
+            <label for="amount" class="form-label">Amount:</label>
+            <input type="text" class="form-control" id="amount" name="amount" value="$50">
+        </div>
+        <button type="submit" class="btn btn-primary">Confirm Transfer</button>
+    </form>
+</div>
 
-<!-- Google Analytics: change UA-XXXXX-X to be your site's ID. -->
+<div class="container">
+    <h1 class="my-4">Recent Bank Transactions</h1>
+    <table class="table table-striped">
+        <thead>
+        <tr>
+            <th>To</th>
+            <th>Amount</th>
+            <th>Note</th>
+        </tr>
+        </thead>
+        <tbody id="transactions">
+        <!-- Transactions will be added here by JavaScript -->
+        </tbody>
+    </table>
+</div>
+
 <script>
-    (function (b, o, i, l, e, r) {
-        b.GoogleAnalyticsObject = l;
-        b[l] || (b[l] =
-            function () {
-                (b[l].q = b[l].q || []).push(arguments)
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchBalance();
+        fetchTransactions();
+
+        const transferForm = document.getElementById('transferForm');
+        transferForm.addEventListener('submit', handleTransferSubmit);
+    });
+
+    async function fetchBalance() {
+        try {
+            const response = await fetch('http://localhost:8080/balance');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            document.getElementById('balance').textContent = `Balance: $${data.totalAmount}`;
+        } catch (error) {
+            console.error('Error fetching balance:', error);
+            document.getElementById('balance').textContent = 'Balance: Error loading';
+        }
+    }
+
+    async function fetchTransactions() {
+        try {
+            const response = await fetch('http://localhost:8080/transactions');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const transactions = await response.json();
+            const transactionsBody = document.getElementById('transactions');
+            transactionsBody.innerHTML = '';
+            transactions.forEach(transaction => {
+                const row = `<tr><td>${transaction.to}</td><td>${transaction.amount}</td><td>${transaction.note}</td></tr>`;
+                transactionsBody.innerHTML += row;
             });
-        b[l].l = +new Date;
-        e = o.createElement(i);
-        r = o.getElementsByTagName(i)[0];
-        e.src = '//www.google-analytics.com/analytics.js';
-        r.parentNode.insertBefore(e, r)
-    }(window, document, 'script', 'ga'));
-    ga('create', 'UA-XXXXX-X');
-    ga('send', 'pageview');
+        } catch (error) {
+            console.error('Error fetching transactions:', error);
+        }
+    }
+
+    async function handleTransferSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(event.target);
+        const transferData = {
+            to: formData.get('to'),
+            amount: formData.get('amount'),
+            note: formData.get('note')
+        };
+
+        const csrfToken = getCookie('XSRF-TOKEN');
+
+        try {
+            const response = await fetch('http://localhost:8080/transfer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-XSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify(transferData)
+            });
+
+            if (response.ok) {
+                console.log('Transfer successful!');
+                fetchBalance();
+                fetchTransactions();
+                // Можно добавить визуальное уведомление об успехе
+            } else {
+                console.error('Transfer failed:', response.status);
+                // Можно добавить визуальное уведомление об ошибке
+            }
+        } catch (error) {
+            console.error('Error during transfer:', error);
+        }
+    }
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
 </script>
+
+<!-- Bootstrap JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/5.0.1/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
